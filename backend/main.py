@@ -301,7 +301,7 @@ async def moderate_content(request: ContentRequest):
     if send_for_review:
         logger.info("Content flagged for review (not persisted)")
 
-        return ModerationResponse(
+    return ModerationResponse(
             is_spam=is_spam,
             is_abusive=is_abusive,
             is_suspicious=is_suspicious,
@@ -312,7 +312,7 @@ async def moderate_content(request: ContentRequest):
                 "abusive": abusive_score,
                 "suspicious": suspicious_score
             }
-        )
+        )   
 
 # -------------------------------
 # Health check
