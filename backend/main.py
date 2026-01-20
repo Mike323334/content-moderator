@@ -297,33 +297,22 @@ async def moderate_content(request: ContentRequest):
     send_for_review = is_suspicious or (spam_score > 0.5 and abusive_score > 0.5)
 
     # Flag in database if needed
+    # Firestore disabled (stateless moderation only)
     if send_for_review:
-        try:
-            doc_ref = db.collection('moderation_queue').document()
-            doc_ref.set({
-                'content': request.content,
-                'user_id': request.user_id,
-                'spam_score': spam_score,
-                'abusive_score': abusive_score,
-                'suspicious_score': suspicious_score,
-                'timestamp': firestore.SERVER_TIMESTAMP
-            })
-            logger.info(f"Content flagged for review and stored in Firestore")
-        except Exception as e:
-            logger.error(f"Failed to store in Firestore: {e}")
+        logger.info("Content flagged for review (not persisted)")
 
-    return ModerationResponse(
-        is_spam=is_spam,
-        is_abusive=is_abusive,
-        is_suspicious=is_suspicious,
-        auto_hide=auto_hide,
-        send_for_review=send_for_review,
-        confidence_scores={
-            "spam": spam_score,
-            "abusive": abusive_score,
-            "suspicious": suspicious_score
-        }
-    )
+        return ModerationResponse(
+            is_spam=is_spam,
+            is_abusive=is_abusive,
+            is_suspicious=is_suspicious,
+            auto_hide=auto_hide,
+            send_for_review=send_for_review,
+            confidence_scores={
+                "spam": spam_score,
+                "abusive": abusive_score,
+                "suspicious": suspicious_score
+            }
+        )
 
 # -------------------------------
 # Health check
