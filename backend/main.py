@@ -5,15 +5,10 @@ import logging
 from typing import Optional
 import unicodedata
 import re
-import firebase_admin
-from firebase_admin import firestore
 import sys
 import os
 
-# Add the parent directory to the path to import firebase_config
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from firebase_config import db
-
+# Add the parent directory to the path to import firebase_confi
 # -------------------------------
 # Logging setup
 # -------------------------------
