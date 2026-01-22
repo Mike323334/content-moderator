@@ -15,5 +15,6 @@
 
 ## Notes
 - The detect_abusive function now attempts to use Grok API first, falling back to regex-based detection if API key is missing or API call fails
+- Grok is configured to detect abusive language in any language, including Spanish
 - Assumed API endpoint: https://api.x.ai/v1/chat/completions (may need verification)
 - Assumed request format similar to OpenAI API (may need adjustment for xAI specifics)

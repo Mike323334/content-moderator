@@ -44,6 +44,7 @@ class ModerationResponse(BaseModel):
     auto_hide: bool
     send_for_review: bool
     confidence_scores: dict
+    message: Optional[str] = None
 
 # -------------------------------
 # Normalización de texto
@@ -157,7 +158,7 @@ def detect_abusive(content: str) -> float:
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are a content moderation assistant. Analyze the given text and determine if it contains abusive language, insults, harassment, or toxic behavior. Respond with a JSON object containing 'is_abusive': true/false and 'confidence': 0.0 to 1.0"
+                    "content": "You are a content moderation assistant. Analyze the given text and determine if it contains abusive language, insults, harassment, or toxic behavior in any language, including Spanish. Respond with a JSON object containing 'is_abusive': true/false and 'confidence': 0.0 to 1.0"
                 },
                 {
                     "role": "user",
@@ -349,6 +350,19 @@ async def moderate_content(request: ContentRequest):
     auto_hide = is_abusive or (is_spam and is_suspicious)
     send_for_review = is_suspicious or (spam_score > 0.5 and abusive_score > 0.5)
 
+    # Generate message for abusive content
+    message = None
+    if is_abusive:
+        import random
+        abusive_messages = [
+            "No deberías decir eso. Por favor, modera tu vocabulario.",
+            "Están prohibidas esas palabras. Sé respetuoso.",
+            "Modera tu vocabulario por favor. No toleramos lenguaje abusivo.",
+            "Ese tipo de lenguaje no es aceptable aquí.",
+            "Por favor, expresa tus ideas de manera respetuosa."
+        ]
+        message = random.choice(abusive_messages)
+
     # Flag in database if needed
     # Firestore disabled (stateless moderation only)
     if send_for_review:
@@ -364,8 +378,9 @@ async def moderate_content(request: ContentRequest):
                 "spam": spam_score,
                 "abusive": abusive_score,
                 "suspicious": suspicious_score
-            }
-        )   
+            },
+            message=message
+        )
 
 # -------------------------------
 # Health check
