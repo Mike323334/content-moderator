@@ -8,7 +8,7 @@ import re
 import sys
 import os
 import requests
-from transformers import pipeline
+import groq
 
 # Add the parent directory to the path to import firebase_confi
 # -------------------------------
@@ -138,59 +138,51 @@ def detect_spam(content: str) -> float:
     return max_score
 
 # -------------------------------
-# Detección de lenguaje abusivo usando BERT models
+# Detección de lenguaje abusivo usando Groq API
 # -------------------------------
-# Global variables for models
-toxic_bert_model = None
-spanish_toxic_model = None
-
-def load_models():
-    global toxic_bert_model, spanish_toxic_model
-    try:
-        # Load unitary/toxic-bert for general toxic detection
-        toxic_bert_model = pipeline("text-classification", model="unitary/toxic-bert")
-        # Load mrm8488/bert-small-finetuned-toxic-span-es for Spanish toxic detection
-        spanish_toxic_model = pipeline("text-classification", model="mrm8488/bert-small-finetuned-toxic-span-es")
-        logger.info("BERT models loaded successfully")
-    except Exception as e:
-        logger.error(f"Error loading BERT models: {e}")
-        toxic_bert_model = None
-        spanish_toxic_model = None
 
 def detect_abusive(content: str) -> float:
-    # Load models if not already loaded
-    if toxic_bert_model is None or spanish_toxic_model is None:
-        load_models()
-
-    if toxic_bert_model is None or spanish_toxic_model is None:
-        logger.warning("BERT models not available, falling back to regex-based detection")
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        logger.warning("GROQ_API_KEY not set, falling back to regex-based detection")
         return detect_abusive_regex(content)
 
     try:
-        # Use Spanish model for Spanish content, general model for others
+        client = groq.Groq(api_key=api_key)
+
+        # Detect language
         text_lower = content.lower()
         is_spanish = any(word in text_lower for word in ['el', 'la', 'los', 'las', 'un', 'una', 'es', 'son', 'está', 'están'])
 
         if is_spanish:
-            # Use Spanish toxic model
-            result = spanish_toxic_model(content)[0]
-            label = result['label']
-            confidence = result['score']
-            # Model returns 'LABEL_0' (not toxic) or 'LABEL_1' (toxic)
-            is_toxic = label == 'LABEL_1'
-        else:
-            # Use general toxic model
-            result = toxic_bert_model(content)[0]
-            label = result['label']
-            confidence = result['score']
-            # Model returns 'toxic' or 'non-toxic'
-            is_toxic = label == 'toxic'
+            prompt = f"""Analiza el siguiente texto en español y determina si contiene lenguaje abusivo, ofensivo, insultante o tóxico. Responde solo con un número entre 0.0 y 1.0, donde 0.0 significa no abusivo y 1.0 significa altamente abusivo.
 
-        logger.info(f"BERT analysis: is_toxic={is_toxic}, confidence={confidence}")
-        return confidence if is_toxic else 0.0
+Texto: "{content}"
+
+Confianza (0.0-1.0):"""
+        else:
+            prompt = f"""Analyze the following text and determine if it contains abusive, offensive, insulting, or toxic language. Respond only with a number between 0.0 and 1.0, where 0.0 means not abusive and 1.0 means highly abusive.
+
+Text: "{content}"
+
+Confidence (0.0-1.0):"""
+
+        response = client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=10,
+            temperature=0.0
+        )
+
+        confidence_str = response.choices[0].message.content.strip()
+        confidence = float(confidence_str)
+        confidence = max(0.0, min(1.0, confidence))  # Clamp to 0-1
+
+        logger.info(f"Groq analysis: confidence={confidence}")
+        return confidence
 
     except Exception as e:
-        logger.error(f"Error using BERT models: {e}, falling back to regex")
+        logger.error(f"Error using Groq API: {e}, falling back to regex")
         return detect_abusive_regex(content)
 
 # -------------------------------
