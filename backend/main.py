@@ -8,6 +8,7 @@ import re
 import sys
 import os
 import requests
+from transformers import pipeline
 
 # Add the parent directory to the path to import firebase_confi
 # -------------------------------
@@ -137,55 +138,59 @@ def detect_spam(content: str) -> float:
     return max_score
 
 # -------------------------------
-# Detección de lenguaje abusivo usando Grok
+# Detección de lenguaje abusivo usando BERT models
 # -------------------------------
+# Global variables for models
+toxic_bert_model = None
+spanish_toxic_model = None
+
+def load_models():
+    global toxic_bert_model, spanish_toxic_model
+    try:
+        # Load unitary/toxic-bert for general toxic detection
+        toxic_bert_model = pipeline("text-classification", model="unitary/toxic-bert")
+        # Load mrm8488/bert-small-finetuned-toxic-span-es for Spanish toxic detection
+        spanish_toxic_model = pipeline("text-classification", model="mrm8488/bert-small-finetuned-toxic-span-es")
+        logger.info("BERT models loaded successfully")
+    except Exception as e:
+        logger.error(f"Error loading BERT models: {e}")
+        toxic_bert_model = None
+        spanish_toxic_model = None
+
 def detect_abusive(content: str) -> float:
-    # Intentar usar Grok para detectar lenguaje abusivo
-    grok_api_key = os.getenv("GROK_API_KEY")
-    if not grok_api_key:
-        logger.warning("GROK_API_KEY not set, falling back to regex-based detection")
+    # Load models if not already loaded
+    if toxic_bert_model is None or spanish_toxic_model is None:
+        load_models()
+
+    if toxic_bert_model is None or spanish_toxic_model is None:
+        logger.warning("BERT models not available, falling back to regex-based detection")
         return detect_abusive_regex(content)
 
     try:
-        # API endpoint para Grok (asumiendo formato similar a OpenAI)
-        url = "https://api.x.ai/v1/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {grok_api_key}",
-            "Content-Type": "application/json"
-        }
-        data = {
-            "model": "grok-1",  # Ajustar según el modelo disponible
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "You are a content moderation assistant. Analyze the given text and determine if it contains abusive language, insults, harassment, or toxic behavior in any language, including Spanish. Respond with a JSON object containing 'is_abusive': true/false and 'confidence': 0.0 to 1.0"
-                },
-                {
-                    "role": "user",
-                    "content": f"Analyze this text for abusive language: '{content}'"
-                }
-            ],
-            "max_tokens": 100,
-            "temperature": 0.1
-        }
+        # Use Spanish model for Spanish content, general model for others
+        text_lower = content.lower()
+        is_spanish = any(word in text_lower for word in ['el', 'la', 'los', 'las', 'un', 'una', 'es', 'son', 'está', 'están'])
 
-        response = requests.post(url, headers=headers, json=data, timeout=10)
-        response.raise_for_status()
+        if is_spanish:
+            # Use Spanish toxic model
+            result = spanish_toxic_model(content)[0]
+            label = result['label']
+            confidence = result['score']
+            # Model returns 'LABEL_0' (not toxic) or 'LABEL_1' (toxic)
+            is_toxic = label == 'LABEL_1'
+        else:
+            # Use general toxic model
+            result = toxic_bert_model(content)[0]
+            label = result['label']
+            confidence = result['score']
+            # Model returns 'toxic' or 'non-toxic'
+            is_toxic = label == 'toxic'
 
-        result = response.json()
-        message = result["choices"][0]["message"]["content"]
-
-        # Parsear la respuesta JSON
-        import json
-        parsed = json.loads(message)
-        is_abusive = parsed.get("is_abusive", False)
-        confidence = parsed.get("confidence", 0.5)
-
-        logger.info(f"Grok analysis: is_abusive={is_abusive}, confidence={confidence}")
-        return confidence if is_abusive else 0.0
+        logger.info(f"BERT analysis: is_toxic={is_toxic}, confidence={confidence}")
+        return confidence if is_toxic else 0.0
 
     except Exception as e:
-        logger.error(f"Error calling Grok API: {e}, falling back to regex")
+        logger.error(f"Error using BERT models: {e}, falling back to regex")
         return detect_abusive_regex(content)
 
 # -------------------------------
