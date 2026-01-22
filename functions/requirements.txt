@@ -1,6 +1,0 @@
-firebase-admin
-firebase-functions
-flask
-transformers
-torch
-slowapi

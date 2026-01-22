@@ -7,6 +7,7 @@ import unicodedata
 import re
 import sys
 import os
+import requests
 
 # Add the parent directory to the path to import firebase_confi
 # -------------------------------
@@ -135,9 +136,61 @@ def detect_spam(content: str) -> float:
     return max_score
 
 # -------------------------------
-# Detección de lenguaje abusivo
+# Detección de lenguaje abusivo usando Grok
 # -------------------------------
 def detect_abusive(content: str) -> float:
+    # Intentar usar Grok para detectar lenguaje abusivo
+    grok_api_key = os.getenv("GROK_API_KEY")
+    if not grok_api_key:
+        logger.warning("GROK_API_KEY not set, falling back to regex-based detection")
+        return detect_abusive_regex(content)
+
+    try:
+        # API endpoint para Grok (asumiendo formato similar a OpenAI)
+        url = "https://api.x.ai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {grok_api_key}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "model": "grok-1",  # Ajustar según el modelo disponible
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are a content moderation assistant. Analyze the given text and determine if it contains abusive language, insults, harassment, or toxic behavior. Respond with a JSON object containing 'is_abusive': true/false and 'confidence': 0.0 to 1.0"
+                },
+                {
+                    "role": "user",
+                    "content": f"Analyze this text for abusive language: '{content}'"
+                }
+            ],
+            "max_tokens": 100,
+            "temperature": 0.1
+        }
+
+        response = requests.post(url, headers=headers, json=data, timeout=10)
+        response.raise_for_status()
+
+        result = response.json()
+        message = result["choices"][0]["message"]["content"]
+
+        # Parsear la respuesta JSON
+        import json
+        parsed = json.loads(message)
+        is_abusive = parsed.get("is_abusive", False)
+        confidence = parsed.get("confidence", 0.5)
+
+        logger.info(f"Grok analysis: is_abusive={is_abusive}, confidence={confidence}")
+        return confidence if is_abusive else 0.0
+
+    except Exception as e:
+        logger.error(f"Error calling Grok API: {e}, falling back to regex")
+        return detect_abusive_regex(content)
+
+# -------------------------------
+# Fallback: Detección de lenguaje abusivo con regex
+# -------------------------------
+def detect_abusive_regex(content: str) -> float:
     text = normalize_text(content)
 
     regex_patterns = {
@@ -228,7 +281,7 @@ def detect_abusive(content: str) -> float:
         r'd[\s_-]*u[\s_-]*m[\s_-]*b[\s_-]*a[\s_-]*s[\s_-]*s',
         r'l[\s_-]*o[\s_-]*s[\s_-]*e[\s_-]*r'
     ],
-  
+
 
 
 }
@@ -242,13 +295,13 @@ def detect_abusive(content: str) -> float:
         'contextual': 0.8,  # Muy efectivo
         'repeticion_abusiva': 0.8,
         'amenaza_velada': 0.8,
-        'imperativos_agresivos': 0.8, 
+        'imperativos_agresivos': 0.8,
         'rechazo_exclusion': 0.8 ,
-        'deshumanizacion': 0.8, 
+        'deshumanizacion': 0.8,
         'inutilidad_incapacidad':0.8,
         'insultos_comunes': 0.8
     })
-  
+
     max_score = 0.0
     match_count = 0
 

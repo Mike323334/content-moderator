@@ -1,33 +1,19 @@
-# TODO List for Content Moderation App
+# TODO List for Integrating Grok AI into Content Moderation App
 
-## Project Setup
-- [x] Create project structure (frontend/, backend/)
-- [x] Initialize Next.js in frontend/
-- [x] Initialize Python/FastAPI in backend/
+## Completed Tasks
+- [x] Analyze the existing app structure and abusive language detection
+- [x] Add requests library to backend requirements.txt
+- [x] Modify detect_abusive function to integrate Grok API with fallback to regex
+- [x] Install updated dependencies
 
-## Backend Development
-- [x] Set up FastAPI app with basic structure
-- [x] Implement moderation API endpoints (detect spam, abusive language, etc.)
-- [x] Integrate AI models for detection (e.g., Hugging Face transformers)
-- [x] Add rate-limiting functionality
-- [x] Implement flagging and auto-hiding logic
-- [x] Add sending for review feature
-- [x] Integrate Firebase for storage and auth
+## Remaining Tasks
+- [ ] Set up GROK_API_KEY environment variable
+- [ ] Test Grok API integration (requires valid API key)
+- [ ] Verify API endpoint and request format for xAI Grok
+- [ ] Test fallback to regex when API key is not set
+- [ ] Update documentation if needed
 
-## Frontend Development
-- [x] Set up Next.js app structure
-- [x] Create content submission page
-- [x] Build results display component
-- [x] Implement admin review panel
-- [ ] Integrate Firebase Auth
-
-## Deployment
-- [ ] Configure Firebase Hosting for frontend
-- [ ] Configure Render.com for backend
-- [ ] Test locally
-- [ ] Deploy to Firebase (frontend) and Render.com (backend)
-
-## Testing and Finalization
-- [x] Install dependencies
-- [x] Test all features
-- [ ] Final adjustments
+## Notes
+- The detect_abusive function now attempts to use Grok API first, falling back to regex-based detection if API key is missing or API call fails
+- Assumed API endpoint: https://api.x.ai/v1/chat/completions (may need verification)
+- Assumed request format similar to OpenAI API (may need adjustment for xAI specifics)
