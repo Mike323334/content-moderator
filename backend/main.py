@@ -9,6 +9,14 @@ import sys
 import os
 import groq
 
+
+original_init = groq.Groq.__init__
+
+def safe_init(self, *args, **kwargs):
+    kwargs.pop("proxies", None)
+    original_init(self, *args, **kwargs)
+
+groq.Groq.__init__ = safe_init
 # -------------------------------
 # Logging setup
 # -------------------------------
