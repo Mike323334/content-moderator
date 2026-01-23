@@ -14,6 +14,11 @@ import groq
 # -------------------------------
 # Logging setup
 # -------------------------------
+logger = logging.getLogger(__name__)
+for m in sys.modules:
+    if "huggingface_hub" in m:
+        logger.warning(f"huggingface_hub detected: {m}")
+        
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
