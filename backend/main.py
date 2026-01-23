@@ -119,7 +119,7 @@ def detect_abusive(content: str) -> float:
 
         prompt = f"""{"Analiza el siguiente texto en español..." if is_spanish else "Analyze the following text..."}{content}"""
         response = client.chat.completions.create(
-            model="llama3-8b-8192",
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=10,
             temperature=0.0
