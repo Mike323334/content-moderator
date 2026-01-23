@@ -110,14 +110,24 @@ def detect_abusive(content: str) -> float:
         return detect_abusive_regex(content)
 
     try:
-        # Remove env proxies in Render
+        # Remove env proxies
         for key in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
             os.environ.pop(key, None)
 
         text_lower = content.lower()
-        is_spanish = any(word in text_lower for word in ['el', 'la', 'los', 'las', 'un', 'una', 'es', 'son', 'está', 'están'])
+        is_spanish = any(word in text_lower for word in ['el','la','los','las','un','una','es','son','está','están'])
 
-        prompt = f"""{"Analiza el siguiente texto en español..." if is_spanish else "Analyze the following text..."}{content}"""
+        prompt = f"""
+                You are a content moderation AI.
+                Return ONLY a number between 0.0 and 1.0.
+                Do NOT include words or explanations.
+                0.0 = not abusive
+                1.0 = extremely abusive
+
+                Text:
+                {content}
+                """
+
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
@@ -126,13 +136,13 @@ def detect_abusive(content: str) -> float:
         )
 
         raw = response.choices[0].message.content.strip()
-
-        match = re.search(r"0(?:\.\d+)?|1(?:\.0+)?", raw)
+        match = re.search(r"\b0(?:\.\d+)?|1(?:\.0+)?|0?\.\d+\b", raw)
         if not match:
-            raise ValueError(f"Invalid confidence returned: {raw}")
+            logger.warning(f"Invalid confidence returned: {raw}")
+            return detect_abusive_regex(content)
 
         confidence = float(match.group())
-        confidence = max(0.0, min(1.0, confidence))
+        return max(0.0, min(1.0, confidence))
 
     except Exception as e:
         logger.error(f"Error using Groq API: {e}, falling back to regex")
