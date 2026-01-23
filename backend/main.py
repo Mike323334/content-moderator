@@ -125,9 +125,14 @@ def detect_abusive(content: str) -> float:
             temperature=0.0
         )
 
-        confidence_str = response.choices[0].message.content.strip()
-        confidence = float(confidence_str)
-        return max(0.0, min(1.0, confidence))
+        raw = response.choices[0].message.content.strip()
+
+        match = re.search(r"0(?:\.\d+)?|1(?:\.0+)?", raw)
+        if not match:
+            raise ValueError(f"Invalid confidence returned: {raw}")
+
+        confidence = float(match.group())
+        confidence = max(0.0, min(1.0, confidence))
 
     except Exception as e:
         logger.error(f"Error using Groq API: {e}, falling back to regex")
