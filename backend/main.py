@@ -14,13 +14,17 @@ import groq
 # -------------------------------
 # Logging setup
 # -------------------------------
+
+
+
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 for m in sys.modules:
     if "huggingface_hub" in m:
         logger.warning(f"huggingface_hub detected: {m}")
-        
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+
+logger.info(f"HTTP_PROXY={os.getenv('HTTP_PROXY')}")
+logger.info(f"HTTPS_PROXY={os.getenv('HTTPS_PROXY')}")
 
 # -------------------------------
 # FastAPI app
@@ -154,7 +158,11 @@ def detect_abusive(content: str) -> float:
 
     try:
         client = groq.Groq(api_key=api_key)
-
+           # Remove any environment proxies (Render may inject them)
+        os.environ.pop("HTTP_PROXY", None)
+        os.environ.pop("HTTPS_PROXY", None)
+        os.environ.pop("http_proxy", None)
+        os.environ.pop("https_proxy", None)
         # Detect language
         text_lower = content.lower()
         is_spanish = any(word in text_lower for word in ['el', 'la', 'los', 'las', 'un', 'una', 'es', 'son', 'está', 'están'])
